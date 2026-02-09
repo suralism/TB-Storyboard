@@ -1,7 +1,7 @@
-// TB Storyboard - Content Script v1.3.0
+// TB Storyboard - Content Script v1.3.4
 // Clean implementation with correct detection
 
-console.log('[TBS] Content script loaded v1.3.0');
+console.log('[TBS] Content script loaded v1.3.4');
 
 // ==================== Config ====================
 const CONFIG = {
