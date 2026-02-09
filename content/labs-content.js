@@ -199,19 +199,24 @@ async function clearTimeline() {
   const buttons = document.querySelectorAll('button');
   let arrangeBtn = null;
   
+  log(`Scanning ${buttons.length} buttons for Arrange...`);
+  
   for (const btn of buttons) {
     const html = btn.innerHTML || '';
     const r = btn.getBoundingClientRect();
     
-    // Arrange button is near download button, has specific icon class
-    // It's in the timeline area (bottom) and has size ~40x48
-    if (r.top > 500 && r.width > 30 && r.width < 60 && r.height > 30) {
-      // Check if it's NOT the download button (download icon)
+    // Log buttons in timeline area for debugging
+    if (r.top > 500 && r.left > 700) {
+      log(`Button: (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} dl:${html.includes('download')}`);
+    }
+    
+    // Arrange button is near download button
+    // Relaxed conditions: bottom area, reasonable size, not download
+    if (r.top > 500 && r.width > 30 && r.width < 80 && r.height > 30) {
       if (!html.includes('download') && !html.includes('save_alt') && !html.includes('file_download')) {
-        // Check if it's near right side (x > 800)
-        if (r.left > 800 && r.left < 1000) {
+        if (r.left > 700) {
           arrangeBtn = btn;
-          log(`Found Arrange button at: ${r.left.toFixed(0)}, ${r.top.toFixed(0)}`);
+          log(`>>> Found Arrange button at: ${r.left.toFixed(0)}, ${r.top.toFixed(0)}`);
           break;
         }
       }
