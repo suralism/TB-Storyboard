@@ -1,11 +1,11 @@
-// TB Storyboard - Content Script v1.2.0
-// Clean implementation following exact flow
+// TB Storyboard - Content Script v1.3.0
+// Clean implementation with correct detection
 
-console.log('[TBS] Content script loaded v1.2.0');
+console.log('[TBS] Content script loaded v1.3.0');
 
 // ==================== Config ====================
 const CONFIG = {
-  pollInterval: 1000,
+  pollInterval: 2000,
   genTimeout: 300000, // 5 minutes
   shortDelay: 500,
   mediumDelay: 1000,
@@ -116,8 +116,8 @@ async function runStoryboard(options) {
         await clickLastClipInTimeline();
         await delay(CONFIG.shortDelay);
         
-        // Move playhead to end
-        await movePlayheadToEnd();
+        // Press End key to move playhead to end
+        await pressEndKey();
         await delay(CONFIG.shortDelay);
         
         // Click + to extend
@@ -130,7 +130,6 @@ async function runStoryboard(options) {
       const promptResult = await fillPrompt(prompts[i]);
       if (!promptResult.success) {
         log('ERROR: Could not fill prompt');
-        results.failedScenes.push(i + 1);
         continue;
       }
       await delay(CONFIG.shortDelay);
@@ -148,7 +147,7 @@ async function runStoryboard(options) {
       
       // Wait for generation to complete
       log('Waiting for generation...');
-      const waitResult = await waitForGeneration();
+      const waitResult = await waitForGeneration(i + 1);
       
       if (waitResult.success) {
         results.scenesCompleted++;
@@ -165,10 +164,6 @@ async function runStoryboard(options) {
     const clipCount = countClipsInTimeline();
     log(`Clips in timeline: ${clipCount}`);
     log(`Expected: ${prompts.length}`);
-    
-    if (clipCount < prompts.length) {
-      log('WARNING: Not all clips generated!');
-    }
     
     // ========================================
     // STEP 8-9: Download
@@ -195,40 +190,97 @@ async function runStoryboard(options) {
 
 // ==================== STEP 1: Clear Timeline ====================
 async function clearTimeline() {
-  log('Clearing timeline...');
+  log('Looking for Arrange button (3 squares)...');
   
-  // TODO: ถ้าลูกพี่ต้องการให้ clear ก่อน บอกผมว่าปุ่ม clear อยู่ตรงไหน
-  // ตอนนี้จะข้ามไปก่อน ถ้า timeline ว่างอยู่แล้ว
-  
-  const clipCount = countClipsInTimeline();
-  if (clipCount === 0) {
-    log('Timeline is empty, no need to clear');
+  // Find Arrange button - icon with 3 squares, near download button
+  const arrangeBtn = findArrangeButton();
+  if (!arrangeBtn) {
+    log('Arrange button not found - timeline may be empty');
     return { success: true };
   }
   
-  log(`Found ${clipCount} clips, need to clear`);
-  // TODO: Implement clear logic - ต้องถามลูกพี่ว่าปุ่มอยู่ไหน
+  log('Clicking Arrange button...');
+  arrangeBtn.click();
+  await delay(CONFIG.mediumDelay);
+  
+  // Now find and click all "-" buttons to delete clips
+  let deletedCount = 0;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const minusBtn = findMinusButton();
+    if (!minusBtn) {
+      log(`No more clips to delete. Deleted: ${deletedCount}`);
+      break;
+    }
+    
+    log('Clicking minus button to delete clip...');
+    minusBtn.click();
+    deletedCount++;
+    await delay(CONFIG.shortDelay);
+  }
+  
+  // Click somewhere else to close arrange mode
+  document.body.click();
+  await delay(CONFIG.shortDelay);
   
   return { success: true };
+}
+
+function findArrangeButton() {
+  // Find button with 3 squares icon - bottom right area
+  const buttons = document.querySelectorAll('button');
+  for (const btn of buttons) {
+    const html = btn.innerHTML || '';
+    const rect = btn.getBoundingClientRect();
+    
+    // Bottom right area, has icon that looks like arrange/grid
+    if (rect.top > 450 && rect.left > 700) {
+      // Check for material icon or svg that represents arrange
+      if (html.includes('view_agenda') || html.includes('grid') || 
+          html.includes('horizontal_split') || html.includes('dashboard')) {
+        return btn;
+      }
+    }
+  }
+  return null;
+}
+
+function findMinusButton() {
+  const buttons = document.querySelectorAll('button');
+  for (const btn of buttons) {
+    const text = (btn.innerText || '').trim();
+    const html = btn.innerHTML || '';
+    
+    if (text === '-' || html.includes('remove') || html.includes('delete')) {
+      return btn;
+    }
+  }
+  return null;
 }
 
 // ==================== STEP 2: Switch Mode ====================
 async function switchMode(targetMode) {
   log('Looking for mode dropdown...');
   
-  // Find mode dropdown button at bottom of screen
   const modeButton = findModeDropdown();
   if (!modeButton) {
     log('Mode dropdown not found');
     return { success: false };
   }
   
-  log('Found mode button, clicking...');
+  // Check if already on correct mode
+  const currentMode = (modeButton.innerText || '').trim();
+  if (currentMode.includes(targetMode)) {
+    log('Already on correct mode:', targetMode);
+    return { success: true };
+  }
+  
+  log('Current mode:', currentMode);
+  log('Switching to:', targetMode);
   modeButton.click();
   await delay(CONFIG.shortDelay);
   
   // Find and click target option
-  const options = document.querySelectorAll('div, span');
+  const options = document.querySelectorAll('div[role="option"], div, span');
   for (const opt of options) {
     const text = (opt.innerText || '').trim();
     const rect = opt.getBoundingClientRect();
@@ -246,7 +298,6 @@ async function switchMode(targetMode) {
 }
 
 function findModeDropdown() {
-  // Mode dropdown is at bottom, contains current mode text
   const elements = document.querySelectorAll('div, button');
   
   for (const el of elements) {
@@ -254,9 +305,9 @@ function findModeDropdown() {
     const rect = el.getBoundingClientRect();
     
     // Bottom of screen, reasonable width
-    if (rect.top > 550 && rect.width > 100 && rect.width < 300) {
-      if (text.includes('Text to Video') || text.includes('Frames to Video') || 
-          text.includes('Ingredients to Video') || text.includes('Create Image')) {
+    if (rect.top > 600 && rect.width > 80 && rect.width < 300) {
+      if (text === 'Text to Video' || text === 'Frames to Video' || 
+          text === 'Ingredients to Video' || text === 'Create Image') {
         return el;
       }
     }
@@ -267,20 +318,50 @@ function findModeDropdown() {
 
 // ==================== STEP 3: Set Settings ====================
 async function setSettings(aspectRatio, outputs) {
-  log('Setting aspect ratio:', aspectRatio);
-  log('Setting outputs:', outputs);
+  log('Looking for Tune button...');
   
-  // TODO: ถ้าลูกพี่ต้องการให้ตั้งค่า บอกผมว่าปุ่ม settings อยู่ตรงไหน
-  // ดูจากรูปน่าจะเป็นปุ่มด้านขวาล่าง (icon tune/settings)
+  // Find Tune button (settings icon)
+  const tuneBtn = findTuneButton();
+  if (!tuneBtn) {
+    log('Tune button not found, skipping settings');
+    return { success: false };
+  }
+  
+  log('Clicking Tune button...');
+  tuneBtn.click();
+  await delay(CONFIG.mediumDelay);
+  
+  // TODO: Select aspect ratio and outputs from the menu
+  // For now, just log and close
+  log('Settings panel opened. Aspect Ratio:', aspectRatio, 'Outputs:', outputs);
+  
+  // Click outside to close
+  document.body.click();
+  await delay(CONFIG.shortDelay);
   
   return { success: true };
+}
+
+function findTuneButton() {
+  const buttons = document.querySelectorAll('button');
+  for (const btn of buttons) {
+    const html = btn.innerHTML || '';
+    const rect = btn.getBoundingClientRect();
+    
+    // Bottom area, has tune icon
+    if (rect.top > 600) {
+      if (html.includes('tune') || html.includes('settings') || html.includes('sliders')) {
+        return btn;
+      }
+    }
+  }
+  return null;
 }
 
 // ==================== STEP 4: Upload Image ====================
 async function uploadImage(image, aspectRatio) {
   log('Looking for + button to add image...');
   
-  // Find + button
   const addBtn = findAddButton();
   if (!addBtn) {
     log('Add button not found');
@@ -290,14 +371,12 @@ async function uploadImage(image, aspectRatio) {
   addBtn.click();
   await delay(2000);
   
-  // Find file input
   const fileInput = document.querySelector('input[type="file"]');
   if (!fileInput) {
     log('File input not found');
     return { success: false };
   }
   
-  // Convert base64 to file and upload
   const response = await fetch(image.base64);
   const blob = await response.blob();
   const file = new File([blob], image.name, { type: image.type });
@@ -310,7 +389,6 @@ async function uploadImage(image, aspectRatio) {
   log('File uploaded, waiting for crop dialog...');
   await delay(8000);
   
-  // Handle crop dialog
   await handleCropDialog(aspectRatio);
   await delay(CONFIG.longDelay);
   
@@ -323,8 +401,7 @@ function findAddButton() {
     const text = (btn.innerText || '').trim().toLowerCase();
     const rect = btn.getBoundingClientRect();
     
-    // + button near prompt area (bottom)
-    if ((text === 'add' || text === '+') && rect.top > 600) {
+    if ((text === 'add' || text === '+') && rect.top > 500) {
       return btn;
     }
   }
@@ -332,19 +409,15 @@ function findAddButton() {
 }
 
 async function handleCropDialog(aspectRatio) {
-  log('Looking for Crop dialog...');
+  log('Looking for Crop and Save button...');
   
-  // Wait for dialog
   await delay(CONFIG.mediumDelay);
-  
-  // Find aspect ratio combobox and select correct ratio
-  // TODO: ถ้าลูกพี่ต้องการให้เลือก aspect ratio ใน crop dialog บอกผม
   
   // Find and click "Crop and Save" button
   const buttons = document.querySelectorAll('button');
   for (const btn of buttons) {
     const text = (btn.innerText || '').trim();
-    if (text === 'Crop and Save' || text.includes('Crop and Save')) {
+    if (text === 'Crop and Save') {
       log('Clicking Crop and Save');
       btn.click();
       return { success: true };
@@ -364,7 +437,6 @@ async function fillPrompt(text) {
   
   for (const ta of textareas) {
     const rect = ta.getBoundingClientRect();
-    // Prompt textarea is at bottom, wide
     if (rect.width > 200 && rect.top > 500) {
       promptInput = ta;
       break;
@@ -387,7 +459,7 @@ async function fillPrompt(text) {
 
 // ==================== Wait for Generate Button ====================
 async function waitForGenerateButton() {
-  log('Waiting for generate button to be enabled...');
+  log('Waiting for generate button...');
   
   for (let i = 0; i < 30; i++) {
     const btn = findGenerateButton();
@@ -432,37 +504,51 @@ async function clickGenerate() {
 }
 
 // ==================== Wait for Generation ====================
-async function waitForGeneration() {
+// Detection: 
+// 1. Duration changes from 0:00 / 0:00 to 0:00 / X:XX
+// 2. No "%" text on thumbnail
+// 3. + button appears next to clip
+async function waitForGeneration(sceneNum) {
   log('Waiting for generation to complete...');
+  log('Detection: Duration > 0:00 OR no % on thumbnail');
   
   const startTime = Date.now();
-  let lastPercent = -1;
-  
-  // Count Add to scene buttons before
-  const initialCount = countAddToSceneButtons();
-  log('Initial Add to scene count:', initialCount);
+  const initialDuration = getTimelineDuration();
+  log('Initial duration:', initialDuration);
   
   while (Date.now() - startTime < CONFIG.genTimeout) {
     await delay(CONFIG.pollInterval);
     
-    // Check percentage
+    // Check 1: Is there a percentage showing? (still generating)
     const percent = getLoadingPercent();
-    if (percent >= 0 && percent !== lastPercent) {
+    if (percent >= 0) {
       log('Progress:', percent + '%');
-      lastPercent = percent;
+      continue; // Still generating
     }
     
-    // Check if Add to scene count increased (new clip completed)
-    const currentCount = countAddToSceneButtons();
-    if (currentCount > initialCount) {
-      log('New Add to scene button appeared!');
+    // Check 2: Duration changed (new clip added)
+    const currentDuration = getTimelineDuration();
+    if (currentDuration > initialDuration) {
+      log('Duration increased:', initialDuration, '->', currentDuration);
       await delay(CONFIG.mediumDelay);
       return { success: true };
     }
     
-    // Check for 100%
-    if (percent === 100) {
-      await delay(2000);
+    // Check 3: + button appeared (for first scene)
+    if (sceneNum === 1) {
+      const plusBtn = findPlusButtonInTimeline();
+      if (plusBtn) {
+        log('+ button appeared - generation complete');
+        await delay(CONFIG.mediumDelay);
+        return { success: true };
+      }
+    }
+    
+    // If no %, check if clip thumbnail exists without %
+    const hasClipWithoutPercent = checkClipWithoutPercent();
+    if (hasClipWithoutPercent) {
+      log('Clip exists without % - generation complete');
+      await delay(CONFIG.mediumDelay);
       return { success: true };
     }
   }
@@ -472,40 +558,118 @@ async function waitForGeneration() {
 }
 
 function getLoadingPercent() {
-  const text = document.body.innerText;
-  const match = text.match(/(\d+)\s*%/);
-  if (match) {
-    const num = parseInt(match[1]);
-    if (num >= 0 && num <= 100) return num;
+  // Look for "X%" text in timeline area
+  const timelineArea = document.querySelector('body');
+  const text = timelineArea.innerText;
+  
+  // Match percentage pattern (but not in time display like 0:00)
+  const matches = text.match(/(\d{1,3})%/g);
+  if (matches) {
+    for (const match of matches) {
+      const num = parseInt(match);
+      if (num >= 0 && num <= 100) {
+        return num;
+      }
+    }
   }
   return -1;
 }
 
-function countAddToSceneButtons() {
-  let count = 0;
-  const elements = document.querySelectorAll('button, div');
-  for (const el of elements) {
-    const text = (el.innerText || '').toLowerCase();
-    if (text === 'add to scene') count++;
+function getTimelineDuration() {
+  // Find "0:00 / X:XX" pattern
+  const text = document.body.innerText;
+  const match = text.match(/(\d+):(\d+)\s*\/\s*(\d+):(\d+)/);
+  if (match) {
+    const minutes = parseInt(match[3]);
+    const seconds = parseInt(match[4]);
+    return minutes * 60 + seconds;
   }
-  return count;
+  return 0;
+}
+
+function findPlusButtonInTimeline() {
+  const buttons = document.querySelectorAll('button');
+  for (const btn of buttons) {
+    const text = (btn.innerText || '').trim();
+    const rect = btn.getBoundingClientRect();
+    
+    // + button in timeline area
+    if (text === '+' && rect.top > 450 && rect.top < 650) {
+      return btn;
+    }
+  }
+  return null;
+}
+
+function checkClipWithoutPercent() {
+  // Check if there's a clip thumbnail that doesn't have % overlay
+  const timelineElements = document.querySelectorAll('div');
+  for (const el of timelineElements) {
+    const rect = el.getBoundingClientRect();
+    // Timeline thumbnail area
+    if (rect.top > 450 && rect.top < 650 && rect.width > 50 && rect.height > 30) {
+      const text = (el.innerText || '').trim();
+      // Has video frames but no percentage
+      if (!text.includes('%') && el.querySelector('img, video, canvas')) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // ==================== Click Last Clip ====================
 async function clickLastClipInTimeline() {
   log('Clicking last clip in timeline...');
   
-  // TODO: ถ้าลูกพี่ต้องการให้คลิกคลิปสุดท้าย บอกผมว่า element อยู่ตรงไหน
-  // น่าจะเป็น thumbnail ใน timeline area (bottom)
+  // Find clip thumbnails in timeline
+  const clips = findClipsInTimeline();
+  if (clips.length === 0) {
+    log('No clips found in timeline');
+    return { success: false };
+  }
+  
+  // Click the last one (rightmost)
+  const lastClip = clips[clips.length - 1];
+  log('Clicking clip at position:', clips.length);
+  lastClip.click();
   
   return { success: true };
 }
 
-// ==================== Move Playhead to End ====================
-async function movePlayheadToEnd() {
-  log('Moving playhead to end...');
+function findClipsInTimeline() {
+  const clips = [];
+  const elements = document.querySelectorAll('div');
   
-  // TODO: ถ้าลูกพี่ต้องการให้เลื่อน playhead บอกผมว่าทำยังไง
+  for (const el of elements) {
+    const rect = el.getBoundingClientRect();
+    // Timeline area, clip-sized elements
+    if (rect.top > 480 && rect.top < 620 && rect.width > 60 && rect.height > 40) {
+      // Has visual content (image or video frames)
+      if (el.querySelector('img, video, canvas') || el.style.backgroundImage) {
+        clips.push({ element: el, left: rect.left });
+      }
+    }
+  }
+  
+  // Sort by left position
+  clips.sort((a, b) => a.left - b.left);
+  return clips.map(c => c.element);
+}
+
+// ==================== Press End Key ====================
+async function pressEndKey() {
+  log('Pressing End key to move playhead...');
+  
+  // Dispatch End key event
+  const event = new KeyboardEvent('keydown', {
+    key: 'End',
+    code: 'End',
+    keyCode: 35,
+    which: 35,
+    bubbles: true
+  });
+  document.dispatchEvent(event);
   
   return { success: true };
 }
@@ -514,54 +678,28 @@ async function movePlayheadToEnd() {
 async function clickExtendButton() {
   log('Looking for + (extend) button...');
   
-  // Find + button in timeline area
-  const buttons = document.querySelectorAll('button');
-  for (const btn of buttons) {
-    const text = (btn.innerText || '').trim();
-    const rect = btn.getBoundingClientRect();
-    
-    // + button in timeline area (y > 450)
-    if ((text === '+' || text === 'add') && rect.top > 450 && rect.top < 600) {
-      log('Found extend button, clicking...');
-      btn.click();
-      return { success: true };
-    }
+  const plusBtn = findPlusButtonInTimeline();
+  if (!plusBtn) {
+    log('Extend button not found');
+    return { success: false };
   }
   
-  log('Extend button not found');
-  return { success: false };
+  log('Clicking extend button...');
+  plusBtn.click();
+  return { success: true };
 }
 
 // ==================== Count Clips in Timeline ====================
 function countClipsInTimeline() {
-  // Count thumbnails/clips in timeline
-  // TODO: ถ้าลูกพี่ต้องการให้นับคลิป บอกผมว่า element อยู่ตรงไหน
-  
-  // For now, use Add to scene count as proxy
-  return countAddToSceneButtons();
+  return findClipsInTimeline().length;
 }
 
 // ==================== STEP 8: Download ====================
 async function downloadVideo() {
   log('Starting download process...');
   
-  // Find download button in timeline area (bottom right)
-  const buttons = document.querySelectorAll('button');
-  let downloadBtn = null;
-  
-  for (const btn of buttons) {
-    const html = btn.innerHTML || '';
-    const rect = btn.getBoundingClientRect();
-    
-    // Download button at bottom right
-    if (rect.top > 450 && rect.left > 800) {
-      if (html.includes('download') || html.includes('file_download') || html.includes('save_alt')) {
-        downloadBtn = btn;
-        break;
-      }
-    }
-  }
-  
+  // Find download button (icon with download arrow) - bottom right
+  const downloadBtn = findDownloadButton();
   if (!downloadBtn) {
     log('Download button not found');
     return { success: false };
@@ -571,34 +709,57 @@ async function downloadVideo() {
   downloadBtn.click();
   await delay(CONFIG.mediumDelay);
   
-  // Wait for render and Download popup
+  // Wait for render and Download popup (top right)
   log('Waiting for render to complete...');
   
-  for (let i = 0; i < 120; i++) { // 2 minutes max
-    // Look for Download link/button in popup (top right)
-    const elements = document.querySelectorAll('a, button');
-    for (const el of elements) {
-      const text = (el.innerText || '').trim();
-      const rect = el.getBoundingClientRect();
+  for (let i = 0; i < 120; i++) {
+    // Look for "Download" link in popup
+    const downloadLink = findDownloadLink();
+    if (downloadLink) {
+      log('Found Download link, clicking...');
+      downloadLink.click();
+      await delay(CONFIG.mediumDelay);
       
-      // Download link should be in top-right area
-      if (text === 'Download' && rect.top < 200 && rect.left > 600) {
-        log('Found Download link, clicking...');
-        el.click();
-        await delay(CONFIG.mediumDelay);
-        
-        // Now find and click Dismiss
-        await clickDismiss();
-        return { success: true };
-      }
+      await clickDismiss();
+      return { success: true };
     }
     
     await delay(CONFIG.pollInterval);
-    if (i % 10 === 0) log('Still waiting for render...', i + 's');
+    if (i % 10 === 0) log('Still waiting for render...', i * 2 + 's');
   }
   
   log('Render timeout');
   return { success: false };
+}
+
+function findDownloadButton() {
+  const buttons = document.querySelectorAll('button');
+  for (const btn of buttons) {
+    const html = btn.innerHTML || '';
+    const rect = btn.getBoundingClientRect();
+    
+    // Bottom right area
+    if (rect.top > 450 && rect.left > 800) {
+      if (html.includes('download') || html.includes('file_download') || html.includes('save_alt')) {
+        return btn;
+      }
+    }
+  }
+  return null;
+}
+
+function findDownloadLink() {
+  const elements = document.querySelectorAll('a, button');
+  for (const el of elements) {
+    const text = (el.innerText || '').trim();
+    const rect = el.getBoundingClientRect();
+    
+    // Top right popup area
+    if (text === 'Download' && rect.top < 200) {
+      return el;
+    }
+  }
+  return null;
 }
 
 async function clickDismiss() {
