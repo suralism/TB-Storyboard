@@ -108,21 +108,24 @@ async function runStoryboard(options) {
     for (let i = 0; i < prompts.length; i++) {
       log(`\n========== Scene ${i + 1}/${prompts.length} ==========`);
       
-      // For scene 2+, need to add/extend from last clip
+      // For scene 2+, need to click + to enter Extend mode
       if (i > 0) {
-        log('Scene > 1: Need to extend from previous');
+        log('Scene > 1: Entering Extend mode');
         
-        // Click last clip in timeline
-        await clickLastClipInTimeline();
-        await delay(CONFIG.shortDelay);
-        
-        // Press End key to move playhead to end
-        await pressEndKey();
-        await delay(CONFIG.shortDelay);
-        
-        // Click + to extend
-        await clickExtendButton();
+        // Click + button next to clip (opens "What should happen next?")
+        const extendClicked = await clickExtendButton();
+        if (!extendClicked.success) {
+          log('ERROR: Could not click extend button');
+          continue;
+        }
         await delay(CONFIG.mediumDelay);
+        
+        // Wait for "Extend" tag to appear
+        const extendReady = await waitForExtendMode();
+        if (!extendReady.success) {
+          log('ERROR: Extend mode not activated');
+          continue;
+        }
       }
       
       // Fill prompt
@@ -676,17 +679,59 @@ async function pressEndKey() {
 
 // ==================== Click Extend Button ====================
 async function clickExtendButton() {
-  log('Looking for + (extend) button...');
+  log('Looking for + button next to clip...');
   
-  const plusBtn = findPlusButtonInTimeline();
-  if (!plusBtn) {
-    log('Extend button not found');
-    return { success: false };
+  // Find + button - it's next to the clip in timeline area
+  const buttons = document.querySelectorAll('button');
+  for (const btn of buttons) {
+    const text = (btn.innerText || '').trim();
+    const rect = btn.getBoundingClientRect();
+    
+    // + button in timeline area (between clip and duration display)
+    if (text === '+' && rect.top > 450 && rect.top < 650 && rect.left > 500) {
+      log('Found + button, clicking...');
+      btn.click();
+      return { success: true };
+    }
   }
   
-  log('Clicking extend button...');
-  plusBtn.click();
-  return { success: true };
+  log('+ button not found');
+  return { success: false };
+}
+
+// ==================== Wait for Extend Mode ====================
+async function waitForExtendMode() {
+  log('Waiting for Extend mode to activate...');
+  
+  for (let i = 0; i < 20; i++) {
+    // Look for "Extend" tag in prompt area
+    const elements = document.querySelectorAll('div, span, button');
+    for (const el of elements) {
+      const text = (el.innerText || '').trim();
+      const rect = el.getBoundingClientRect();
+      
+      // Extend tag is in bottom area (prompt section)
+      if (text === 'Extend' && rect.top > 600) {
+        log('Extend mode activated!');
+        return { success: true };
+      }
+    }
+    
+    // Also check for "What happens next?" placeholder
+    const textareas = document.querySelectorAll('textarea');
+    for (const ta of textareas) {
+      const placeholder = ta.placeholder || '';
+      if (placeholder.includes('What happens next')) {
+        log('Extend mode ready (detected placeholder)');
+        return { success: true };
+      }
+    }
+    
+    await delay(CONFIG.shortDelay);
+  }
+  
+  log('Extend mode not detected');
+  return { success: false };
 }
 
 // ==================== Count Clips in Timeline ====================
