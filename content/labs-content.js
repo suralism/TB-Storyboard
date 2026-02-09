@@ -193,71 +193,81 @@ async function runStoryboard(options) {
 
 // ==================== STEP 1: Clear Timeline ====================
 async function clearTimeline() {
-  log('Looking for Arrange button (3 squares)...');
+  log('=== Clearing Timeline ===');
   
-  // Find Arrange button - icon with 3 squares, near download button
-  const arrangeBtn = findArrangeButton();
+  // Step 1: Find and click Arrange button (icon with 3 squares)
+  const buttons = document.querySelectorAll('button');
+  let arrangeBtn = null;
+  
+  for (const btn of buttons) {
+    const html = btn.innerHTML || '';
+    const r = btn.getBoundingClientRect();
+    
+    // Arrange button is near download button, has specific icon class
+    // It's in the timeline area (bottom) and has size ~40x48
+    if (r.top > 500 && r.width > 30 && r.width < 60 && r.height > 30) {
+      // Check if it's NOT the download button (download icon)
+      if (!html.includes('download') && !html.includes('save_alt') && !html.includes('file_download')) {
+        // Check if it's near right side (x > 800)
+        if (r.left > 800 && r.left < 1000) {
+          arrangeBtn = btn;
+          log(`Found Arrange button at: ${r.left.toFixed(0)}, ${r.top.toFixed(0)}`);
+          break;
+        }
+      }
+    }
+  }
+  
   if (!arrangeBtn) {
     log('Arrange button not found - timeline may be empty');
     return { success: true };
   }
   
-  log('Clicking Arrange button...');
+  // Click Arrange button
   arrangeBtn.click();
-  await delay(CONFIG.mediumDelay);
+  await delay(500);
   
-  // Now find and click all "-" buttons to delete clips
-  let deletedCount = 0;
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const minusBtn = findMinusButton();
-    if (!minusBtn) {
-      log(`No more clips to delete. Deleted: ${deletedCount}`);
+  // Step 2: Loop and click all remove buttons
+  let removedCount = 0;
+  let maxIterations = 20; // Safety limit
+  
+  while (maxIterations > 0) {
+    // Find remove buttons
+    let removeBtn = null;
+    document.querySelectorAll('button').forEach(btn => {
+      const text = (btn.innerText || '').toLowerCase();
+      if (text.includes('remove')) {
+        removeBtn = btn;
+      }
+    });
+    
+    if (removeBtn) {
+      log(`Removing clip ${removedCount + 1}...`);
+      removeBtn.click();
+      await delay(300);
+      removedCount++;
+    } else {
       break;
     }
     
-    log('Clicking minus button to delete clip...');
-    minusBtn.click();
-    deletedCount++;
-    await delay(CONFIG.shortDelay);
+    maxIterations--;
   }
   
-  // Click somewhere else to close arrange mode
-  document.body.click();
-  await delay(CONFIG.shortDelay);
+  log(`Removed ${removedCount} clips`);
   
-  return { success: true };
-}
-
-function findArrangeButton() {
-  // Find button with 3 squares icon - bottom right area
-  const buttons = document.querySelectorAll('button');
-  for (const btn of buttons) {
-    const html = btn.innerHTML || '';
-    const rect = btn.getBoundingClientRect();
-    
-    // Bottom right area, has icon that looks like arrange/grid
-    if (rect.top > 450 && rect.left > 700) {
-      // Check for material icon or svg that represents arrange
-      if (html.includes('view_agenda') || html.includes('grid') || 
-          html.includes('horizontal_split') || html.includes('dashboard')) {
-        return btn;
-      }
-    }
-  }
-  return null;
-}
-
-function findMinusButton() {
-  const buttons = document.querySelectorAll('button');
-  for (const btn of buttons) {
+  // Step 3: Click Done button (if exists)
+  document.querySelectorAll('button').forEach(btn => {
     const text = (btn.innerText || '').trim();
-    const html = btn.innerHTML || '';
-    
-    if (text === '-' || html.includes('remove') || html.includes('delete')) {
-      return btn;
+    if (text === 'Done') {
+      log('Clicking Done button');
+      btn.click();
     }
-  }
-  return null;
+  });
+  
+  await delay(500);
+  log('=== Timeline Cleared ===');
+  
+  return { success: true, removedCount };
 }
 
 // ==================== STEP 2: Switch Mode ====================
@@ -331,44 +341,142 @@ function findModeDropdown() {
 
 // ==================== STEP 3: Set Settings ====================
 async function setSettings(aspectRatio, outputs) {
-  log('Looking for Tune button...');
+  log(`Setting settings: aspect=${aspectRatio}, outputs=${outputs}`);
   
-  // Find Tune button (settings icon)
-  const tuneBtn = findTuneButton();
-  if (!tuneBtn) {
-    log('Tune button not found, skipping settings');
-    return { success: false };
-  }
-  
-  log('Clicking Tune button...');
-  tuneBtn.click();
-  await delay(CONFIG.mediumDelay);
-  
-  // TODO: Select aspect ratio and outputs from the menu
-  // For now, just log and close
-  log('Settings panel opened. Aspect Ratio:', aspectRatio, 'Outputs:', outputs);
-  
-  // Click outside to close
-  document.body.click();
-  await delay(CONFIG.shortDelay);
-  
-  return { success: true };
-}
-
-function findTuneButton() {
+  // Step 1: Find and click the Settings button (tune icon)
   const buttons = document.querySelectorAll('button');
+  let settingsBtn = null;
+  
   for (const btn of buttons) {
+    const text = (btn.innerText || '').toLowerCase();
     const html = btn.innerHTML || '';
     const rect = btn.getBoundingClientRect();
     
-    // Bottom area, has tune icon
-    if (rect.top > 600) {
-      if (html.includes('tune') || html.includes('settings') || html.includes('sliders')) {
-        return btn;
-      }
+    if ((text.includes('tune') || text.includes('settings') || html.includes('tune')) && rect.width > 30 && rect.top > 600) {
+      settingsBtn = btn;
+      log(`Found settings button at: ${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}`);
+      break;
     }
   }
-  return null;
+  
+  if (!settingsBtn) {
+    log('Settings button not found');
+    return { success: false };
+  }
+  
+  // Click settings to open popup
+  settingsBtn.click();
+  await delay(800);
+  
+  // Set aspect ratio
+  if (aspectRatio) {
+    let aspectDropdown = null;
+    document.querySelectorAll('[class*="sc-4b3fbad9"]').forEach(el => {
+      const text = (el.innerText || '').toLowerCase();
+      const rect = el.getBoundingClientRect();
+      if (text.includes('aspect ratio') && rect.width > 100 && rect.width < 250) {
+        aspectDropdown = el;
+      }
+    });
+    
+    // Fallback
+    if (!aspectDropdown) {
+      document.querySelectorAll('button, div').forEach(el => {
+        const text = (el.innerText || '').toLowerCase();
+        const rect = el.getBoundingClientRect();
+        if (text.includes('aspect ratio') && rect.width > 150 && rect.width < 250) {
+          aspectDropdown = el;
+        }
+      });
+    }
+    
+    if (aspectDropdown) {
+      log('Found aspect ratio dropdown, clicking...');
+      aspectDropdown.click();
+      await delay(800);
+      
+      const targetText = aspectRatio === '9:16' ? 'portrait' : 'landscape';
+      log(`Looking for option containing: ${targetText}`);
+      
+      let found = false;
+      const allElements = document.querySelectorAll('div, span, button');
+      
+      for (const el of allElements) {
+        const text = (el.innerText || '').toLowerCase();
+        const rect = el.getBoundingClientRect();
+        
+        if (text.includes(targetText) && !text.includes('aspect ratio') && rect.width > 100 && rect.height > 30 && rect.height < 60 && !found) {
+          log(`Clicking option: ${text.slice(0, 30)}`);
+          el.click();
+          found = true;
+          break;
+        }
+      }
+      
+      await delay(300);
+      if (found) log(`✅ Aspect ratio set to: ${aspectRatio}`);
+      else log(`❌ Option ${targetText} not found!`);
+    } else {
+      log('❌ Aspect ratio dropdown not found!');
+    }
+  }
+  
+  // Set outputs
+  if (outputs) {
+    log(`Setting outputs to: ${outputs}`);
+    
+    let outputsDropdown = null;
+    document.querySelectorAll('[class*="sc-4b3fbad9"]').forEach(el => {
+      const text = (el.innerText || '').toLowerCase();
+      const rect = el.getBoundingClientRect();
+      if (text.includes('outputs per prompt') && rect.width > 100 && rect.width < 150) {
+        outputsDropdown = el;
+      }
+    });
+    
+    // Fallback
+    if (!outputsDropdown) {
+      document.querySelectorAll('button, div').forEach(el => {
+        const text = (el.innerText || '').toLowerCase();
+        const rect = el.getBoundingClientRect();
+        if (text.includes('outputs per prompt') && rect.width > 100 && rect.width < 150) {
+          outputsDropdown = el;
+        }
+      });
+    }
+    
+    if (outputsDropdown) {
+      log('Found outputs dropdown, clicking...');
+      outputsDropdown.click();
+      await delay(800);
+      
+      let found = false;
+      const allElements = document.querySelectorAll('div, span, button');
+      
+      for (const el of allElements) {
+        const text = (el.innerText || '').trim();
+        const rect = el.getBoundingClientRect();
+        
+        if (text === String(outputs) && rect.width > 30 && rect.height > 30 && rect.height < 60 && !found) {
+          log(`Clicking output option: ${text}`);
+          el.click();
+          found = true;
+          break;
+        }
+      }
+      await delay(300);
+      if (found) log(`✅ Outputs set to: ${outputs}`);
+      else log(`❌ Output option ${outputs} not found!`);
+    } else {
+      log('❌ Outputs dropdown not found!');
+    }
+  }
+  
+  // Close settings popup
+  document.body.click();
+  await delay(300);
+  
+  return { success: true };
 }
 
 // ==================== STEP 4: Upload Image ====================
