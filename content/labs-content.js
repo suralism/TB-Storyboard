@@ -301,6 +301,16 @@ async function switchMode(targetMode) {
 }
 
 function findModeDropdown() {
+  // Method 1: Use known class from memory
+  const modeBtn = document.querySelector('[class*="sc-fbe1c021-6"]');
+  if (modeBtn) {
+    const text = (modeBtn.innerText || '').trim();
+    if (text.includes('Video') || text.includes('Image')) {
+      return modeBtn;
+    }
+  }
+  
+  // Method 2: Fallback - find by position and text
   const elements = document.querySelectorAll('div, button');
   
   for (const el of elements) {
@@ -642,15 +652,28 @@ async function clickLastClipInTimeline() {
 
 function findClipsInTimeline() {
   const clips = [];
-  const elements = document.querySelectorAll('div');
   
-  for (const el of elements) {
-    const rect = el.getBoundingClientRect();
-    // Timeline area, clip-sized elements
-    if (rect.top > 480 && rect.top < 620 && rect.width > 60 && rect.height > 40) {
-      // Has visual content (image or video frames)
-      if (el.querySelector('img, video, canvas') || el.style.backgroundImage) {
+  // Method 1: Use known class from memory
+  const timeline = document.querySelector('[class*="sc-5367019-1"]');
+  if (timeline) {
+    const thumbnails = timeline.querySelectorAll('[class*="sc-962285be"]');
+    thumbnails.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 50 && rect.height > 30) {
         clips.push({ element: el, left: rect.left });
+      }
+    });
+  }
+  
+  // Method 2: Fallback - find by position
+  if (clips.length === 0) {
+    const elements = document.querySelectorAll('div');
+    for (const el of elements) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top > 480 && rect.top < 620 && rect.width > 60 && rect.height > 40) {
+        if (el.querySelector('img, video, canvas') || el.style.backgroundImage) {
+          clips.push({ element: el, left: rect.left });
+        }
       }
     }
   }
