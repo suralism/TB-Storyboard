@@ -1,7 +1,7 @@
-// TB Storyboard - Content Script v1.3.4
+// TB Storyboard - Content Script v1.4.0
 // Clean implementation with correct detection
 
-console.log('[TBS] Content script loaded v1.3.4');
+console.log('[TBS] Content script loaded v1.4.0');
 
 // ==================== Config ====================
 const CONFIG = {
@@ -195,28 +195,34 @@ async function runStoryboard(options) {
 async function clearTimeline() {
   log('=== Clearing Timeline ===');
   
-  // Step 1: Find and click Arrange button (icon with 3 squares)
+  // Step 1: Find and click Arrange button (flex_no_wrap icon)
   const buttons = document.querySelectorAll('button');
   let arrangeBtn = null;
   
-  log(`Scanning ${buttons.length} buttons for Arrange...`);
+  log(`Scanning ${buttons.length} buttons for Arrange (flex_no_wrap)...`);
   
   for (const btn of buttons) {
     const html = btn.innerHTML || '';
     const r = btn.getBoundingClientRect();
     
-    // Log buttons in timeline area for debugging
-    if (r.top > 500 && r.left > 700) {
-      log(`Button: (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} dl:${html.includes('download')}`);
+    // Arrange button has flex_no_wrap icon, bottom right area
+    if (r.top > 500 && r.left > 700 && html.includes('flex_no_wrap')) {
+      arrangeBtn = btn;
+      log(`>>> Found Arrange button (flex_no_wrap) at: ${r.left.toFixed(0)}, ${r.top.toFixed(0)}`);
+      break;
     }
-    
-    // Arrange button is near download button
-    // Relaxed conditions: bottom area, reasonable size, not download
-    if (r.top > 500 && r.width > 30 && r.width < 80 && r.height > 30) {
-      if (!html.includes('download') && !html.includes('save_alt') && !html.includes('file_download')) {
-        if (r.left > 700) {
+  }
+  
+  // Fallback: find by position if icon not found
+  if (!arrangeBtn) {
+    for (const btn of buttons) {
+      const html = btn.innerHTML || '';
+      const r = btn.getBoundingClientRect();
+      
+      if (r.top > 500 && r.left > 1200 && r.left < 1250 && r.width > 30 && r.width < 80) {
+        if (!html.includes('download')) {
           arrangeBtn = btn;
-          log(`>>> Found Arrange button at: ${r.left.toFixed(0)}, ${r.top.toFixed(0)}`);
+          log(`>>> Found Arrange button by position at: ${r.left.toFixed(0)}, ${r.top.toFixed(0)}`);
           break;
         }
       }
@@ -348,19 +354,20 @@ function findModeDropdown() {
 async function setSettings(aspectRatio, outputs) {
   log(`Setting settings: aspect=${aspectRatio}, outputs=${outputs}`);
   
-  // Step 1: Find and click the Settings button (tune icon)
-  const buttons = document.querySelectorAll('button');
-  let settingsBtn = null;
+  // Step 1: Find Settings button - has aria-haspopup="dialog" and tune icon
+  let settingsBtn = document.querySelector('button[aria-haspopup="dialog"]');
   
-  for (const btn of buttons) {
-    const text = (btn.innerText || '').toLowerCase();
-    const html = btn.innerHTML || '';
-    const rect = btn.getBoundingClientRect();
-    
-    if ((text.includes('tune') || text.includes('settings') || html.includes('tune')) && rect.width > 30 && rect.top > 600) {
-      settingsBtn = btn;
-      log(`Found settings button at: ${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}`);
-      break;
+  // Fallback: find by tune icon
+  if (!settingsBtn) {
+    const buttons = document.querySelectorAll('button');
+    for (const btn of buttons) {
+      const html = btn.innerHTML || '';
+      const rect = btn.getBoundingClientRect();
+      
+      if (html.includes('tune') && rect.top > 600) {
+        settingsBtn = btn;
+        break;
+      }
     }
   }
   
@@ -369,7 +376,7 @@ async function setSettings(aspectRatio, outputs) {
     return { success: false };
   }
   
-  // Click settings to open popup
+  log(`Found settings button, clicking...`);
   settingsBtn.click();
   await delay(800);
   
@@ -558,14 +565,18 @@ async function handleCropDialog(aspectRatio) {
 async function fillPrompt(text) {
   log('Looking for prompt textarea...');
   
-  const textareas = document.querySelectorAll('textarea');
-  let promptInput = null;
+  // Method 1: Use the known ID
+  let promptInput = document.getElementById('PINHOLE_TEXT_AREA_ELEMENT_ID');
   
-  for (const ta of textareas) {
-    const rect = ta.getBoundingClientRect();
-    if (rect.width > 200 && rect.top > 500) {
-      promptInput = ta;
-      break;
+  // Method 2: Fallback to textarea search
+  if (!promptInput) {
+    const textareas = document.querySelectorAll('textarea');
+    for (const ta of textareas) {
+      const rect = ta.getBoundingClientRect();
+      if (rect.width > 200 && rect.top > 500) {
+        promptInput = ta;
+        break;
+      }
     }
   }
   
@@ -573,6 +584,8 @@ async function fillPrompt(text) {
     log('Prompt textarea not found');
     return { success: false };
   }
+  
+  log('Found prompt input, filling...');
   
   // Use native setter for React
   const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
@@ -815,23 +828,64 @@ async function pressEndKey() {
 
 // ==================== Click Extend Button ====================
 async function clickExtendButton() {
-  log('Looking for + button next to clip...');
+  log('Looking for + button after clip in timeline...');
   
-  // Find + button - it's next to the clip in timeline area
+  // The + button is RIGHT AFTER the clip thumbnail, not the big + on right
   const buttons = document.querySelectorAll('button');
+  let plusBtn = null;
+  
   for (const btn of buttons) {
     const text = (btn.innerText || '').trim();
     const rect = btn.getBoundingClientRect();
     
-    // + button in timeline area (between clip and duration display)
-    if (text === '+' && rect.top > 450 && rect.top < 650 && rect.left > 500) {
-      log('Found + button, clicking...');
-      btn.click();
+    // + button in timeline area, after clips (center area, not far right)
+    if (text === '+' && rect.top > 450 && rect.top < 700) {
+      // Prefer buttons in the middle area (after clips, before the big + on right)
+      if (rect.left > 500 && rect.left < 900) {
+        plusBtn = btn;
+        log(`Found + button after clip at: ${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}`);
+        break;
+      }
+    }
+  }
+  
+  // Fallback: any + button in timeline
+  if (!plusBtn) {
+    for (const btn of buttons) {
+      const text = (btn.innerText || '').trim();
+      const rect = btn.getBoundingClientRect();
+      if (text === '+' && rect.top > 450 && rect.top < 700) {
+        plusBtn = btn;
+        log(`Found + button (fallback) at: ${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}`);
+        break;
+      }
+    }
+  }
+  
+  if (!plusBtn) {
+    log('+ button not found');
+    return { success: false };
+  }
+  
+  log('Clicking + button...');
+  plusBtn.click();
+  await delay(500);
+  
+  // Now look for "Extend..." option in the popup menu
+  log('Looking for "Extend..." option in menu...');
+  const elements = document.querySelectorAll('div, span, button');
+  
+  for (const el of elements) {
+    const text = (el.innerText || '').trim();
+    if (text === 'Extend...' || text.includes('Extend')) {
+      log('Found "Extend..." option, clicking...');
+      el.click();
+      await delay(500);
       return { success: true };
     }
   }
   
-  log('+ button not found');
+  log('"Extend..." option not found in menu');
   return { success: false };
 }
 
