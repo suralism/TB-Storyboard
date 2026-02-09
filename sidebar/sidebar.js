@@ -1,5 +1,5 @@
-// TB Storyboard - Popup Script v1.0.0
-console.log('[TBS] Popup loaded v1.0.0');
+// TB Storyboard - Sidebar Script v1.1.0
+console.log('[TBS] Sidebar loaded v1.1.0');
 
 // ==================== DOM Elements ====================
 const elements = {
@@ -14,6 +14,7 @@ const elements = {
   img2Label: document.getElementById('img2Label'),
   img3Label: document.getElementById('img3Label'),
   imgInput: document.getElementById('imgInput'),
+  modeIndicator: document.getElementById('modeIndicator'),
   
   // Story input
   storyInput: document.getElementById('storyInput'),
@@ -93,6 +94,11 @@ function getSelectedMode() {
   return 'Ingredients to Video';
 }
 
+function updateModeIndicator() {
+  const mode = getSelectedMode();
+  elements.modeIndicator.textContent = `โหมด: ${mode}`;
+}
+
 // ==================== Image Upload ====================
 function initImageUpload() {
   ['img1', 'img2', 'img3'].forEach((id, index) => {
@@ -117,12 +123,14 @@ function initImageUpload() {
       };
       
       const num = currentUploadTarget.slice(-1);
+      const box = elements[`${currentUploadTarget}Box`];
       elements[`${currentUploadTarget}Preview`].src = base64;
       elements[`${currentUploadTarget}Preview`].style.display = 'block';
       elements[`${currentUploadTarget}Label`].style.display = 'none';
+      box.classList.add('has-image');
       
       log(`รูปที่ ${num}: ${file.name}`);
-      log(`โหมดอัตโนมัติ: ${getSelectedMode()}`);
+      updateModeIndicator();
     };
     reader.readAsDataURL(file);
     e.target.value = '';

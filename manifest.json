@@ -1,23 +1,27 @@
 {
   "manifest_version": 3,
   "name": "TB Storyboard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AI Multi-Scene Video Generator for Google Labs Flow",
   "permissions": [
     "activeTab",
     "storage",
-    "notifications"
+    "notifications",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://labs.google/*"
   ],
+  "side_panel": {
+    "default_path": "sidebar/sidebar.html"
+  },
   "action": {
-    "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "assets/icon16.png",
       "48": "assets/icon48.png",
       "128": "assets/icon128.png"
-    }
+    },
+    "default_title": "Open TB Storyboard"
   },
   "background": {
     "service_worker": "background/service-worker.js"

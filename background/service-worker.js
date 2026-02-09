@@ -1,7 +1,12 @@
-// TB Storyboard - Service Worker v1.0.0
+// TB Storyboard - Service Worker v1.1.0
 console.log('[TBS] Service Worker loaded');
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+// Open side panel when extension icon is clicked
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId });
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[TBS] Message received:', message.action);

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TB Storyboard</title>
+  <link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🎬 TB Storyboard</div>
+    <div class="version">v1.1.0 • Sidebar</div>
+  </div>
+
+  <div class="container">
+    <!-- Ingredient Upload Section -->
+    <div class="section">
+      <h3>📸 รูปภาพ (ไม่บังคับ)</h3>
+      <p class="hint">0 รูป = Text to Video | 1 รูป = Frames | 2+ รูป = Ingredients</p>
+      
+      <div class="ingredient-grid">
+        <div class="ingredient-box" id="img1Box">
+          <img id="img1Preview" class="preview" style="display:none;">
+          <span id="img1Label">+ 1</span>
+        </div>
+        <div class="ingredient-box" id="img2Box">
+          <img id="img2Preview" class="preview" style="display:none;">
+          <span id="img2Label">+ 2</span>
+        </div>
+        <div class="ingredient-box" id="img3Box">
+          <img id="img3Preview" class="preview" style="display:none;">
+          <span id="img3Label">+ 3</span>
+        </div>
+      </div>
+      <input type="file" id="imgInput" accept="image/*" style="display:none;">
+      <div id="modeIndicator" class="mode-indicator">โหมด: Text to Video</div>
+    </div>
+
+    <!-- Story Input Section -->
+    <div class="section">
+      <h3>📝 เรื่องราว</h3>
+      <textarea id="storyInput" placeholder="เล่าเรื่องราวที่ต้องการสร้างวิดีโอ..."></textarea>
+    </div>
+
+    <!-- Settings Section -->
+    <div class="section">
+      <h3>⚙️ ตั้งค่า</h3>
+      <div class="settings-grid">
+        <div class="setting">
+          <label>Scenes</label>
+          <select id="sceneCount">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Ratio</label>
+          <select id="aspectRatio">
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="1:1">1:1</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Style</label>
+          <select id="videoStyle">
+            <option value="cinematic">Cinematic</option>
+            <option value="anime">Anime</option>
+            <option value="realistic">Realistic</option>
+            <option value="cartoon">Cartoon</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Outputs</label>
+          <select id="outputs">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate Button -->
+    <button id="btnGenerate" class="btn-primary">✨ สร้าง Storyboard</button>
+
+    <!-- Scene Prompts Preview -->
+    <div id="promptsPreview" class="section" style="display:none;">
+      <h3>🎬 Scene Prompts</h3>
+      <div id="promptsList"></div>
+      <button id="btnStartGen" class="btn-success">🚀 เริ่มสร้างวิดีโอ</button>
+    </div>
+
+    <!-- Progress Section -->
+    <div id="progressSection" class="section" style="display:none;">
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div id="progressText">กำลังเตรียม...</div>
+    </div>
+
+    <!-- Log Section -->
+    <div class="section">
+      <h3>📋 Log</h3>
+      <div id="logArea" class="log-area"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="section">
+      <details>
+        <summary>🔑 API Key</summary>
+        <div class="api-settings">
+          <input type="password" id="apiKey" placeholder="Gemini API Key (AIza...)">
+          <div class="api-buttons">
+            <button id="btnSaveApi" class="btn-small">💾 บันทึก</button>
+            <button id="btnTestApi" class="btn-small">🧪 ทดสอบ</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>
