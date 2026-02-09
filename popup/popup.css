@@ -1,0 +1,294 @@
+:root {
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --bg-dark: #0f0f23;
+  --bg-card: #1a1a2e;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: rgba(139, 92, 246, 0.3);
+  --success: #22c55e;
+  --error: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 380px;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text);
+  padding: 16px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.version {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.section {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+}
+
+.section h3 {
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--primary);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* Ingredient Grid */
+.ingredient-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ingredient-box {
+  aspect-ratio: 1;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.ingredient-box:hover {
+  border-color: var(--primary);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.ingredient-box .preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+}
+
+.ingredient-box span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Textarea */
+textarea {
+  width: 100%;
+  height: 80px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  color: var(--text);
+  font-size: 13px;
+  resize: none;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* Settings Grid */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.setting label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.setting select {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* Buttons */
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--primary), #06b6d4);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: 12px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-success {
+  width: 100%;
+  padding: 12px;
+  background: var(--success);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+  width: 0%;
+  transition: width 0.3s;
+}
+
+#progressText {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Prompts List */
+#promptsList {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.prompt-item {
+  padding: 8px;
+  margin-bottom: 6px;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid var(--primary);
+  font-size: 12px;
+}
+
+.prompt-item .scene-num {
+  font-size: 10px;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+/* Log Area */
+.log-area {
+  height: 120px;
+  overflow-y: auto;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.log-area .log-item {
+  margin-bottom: 4px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.log-area .log-error {
+  color: var(--error);
+}
+
+.log-area .log-success {
+  color: var(--success);
+}
+
+/* API Settings */
+.api-settings {
+  margin-top: 10px;
+}
+
+.api-settings label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.api-settings input {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
